@@ -7,12 +7,21 @@ import SHA256 from 'crypto-js/sha256'
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
+const showPassword = ref(false)
+const errorMessage = ref('')
 const router = useRouter()
 
 const hashPassword = (pass) => SHA256(pass).toString()
 
 const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    errorMessage.value = 'Por favor, completa todos los campos'
+    return
+  }
+
   isLoading.value = true
+  errorMessage.value = ''
+
   try {
     const hash = hashPassword(password.value)
     const { data, error } = await supabase
@@ -23,41 +32,50 @@ const handleLogin = async () => {
       .maybeSingle()
 
     if (data) {
-      // Guardamos sesión simple en localStorage para persistencia básica
       localStorage.setItem('dq_user', JSON.stringify(data))
       router.push('/app')
     } else {
-      alert('Credenciales incorrectas')
+      errorMessage.value = 'Credenciales incorrectas. Verifica tu correo y contraseña.'
     }
   } catch (e) {
-    alert('Error: ' + e.message)
+    errorMessage.value = 'Ocurrió un error inesperado. Inténtalo de nuevo.'
+    console.error(e)
   } finally {
     isLoading.value = false
   }
 }
 
 const handleRegister = async () => {
-  if (!email.value || !password.value) return alert('Completa los campos')
+  if (!email.value || !password.value) {
+    errorMessage.value = 'Completa los campos para registrarte'
+    return
+  }
+
   isLoading.value = true
+  errorMessage.value = ''
+
   try {
     const hash = hashPassword(password.value)
 
-    // Verificar si existe
     const { data: existing } = await supabase
       .from('usuarios2')
       .select().eq('email', email.value).maybeSingle()
 
     if (existing) {
-      alert('Correo ya registrado')
+      errorMessage.value = 'Este correo ya se encuentra registrado'
     } else {
       const { error } = await supabase.from('usuarios2').insert({
         email: email.value,
         password: hash
       })
-      if (!error) alert('Registrado. Por favor inicia sesión.')
+      if (!error) {
+        errorMessage.value = '¡Cuenta creada con éxito! Ahora puedes iniciar sesión.'
+      } else {
+        errorMessage.value = 'No se pudo crear la cuenta. Inténtalo más tarde.'
+      }
     }
   } catch (e) {
-    alert('Error registro: ' + e.message)
+    errorMessage.value = 'Error en el registro: ' + e.message
   } finally {
     isLoading.value = false
   }
@@ -65,100 +83,156 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-wrap">
+  <div class="login-page">
+    <!-- Animated background elements -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="login-container">
       <div class="login-card">
-        <div class="header">
-          <div class="logo-circle">
-            <span class="logo-icon">Q</span>
+        <header class="card-header">
+          <div class="logo-area">
+            <div class="logo-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" class="logo-svg">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <h1>DuQuen</h1>
           </div>
-          <h1>Gastos DuQuen</h1>
-          <p class="subtitle">Bienvenido, por favor ingresa tus credenciales</p>
-        </div>
+          <p class="tagline">Gestión inteligente de tus finanzas</p>
+        </header>
 
-        <div class="form-content">
-          <div class="input-group">
-            <label for="email">Correo Electrónico</label>
-            <div class="input-wrapper">
-              <input id="email" v-model="email" type="email" placeholder="nombre@ejemplo.com"
-                @keyup.enter="handleLogin" />
+        <main class="form-body">
+          <div v-if="errorMessage" class="alert" :class="{ 'alert-success': errorMessage.includes('éxito') }">
+            {{ errorMessage }}
+          </div>
+
+          <div class="input-root">
+            <label for="email">Email</label>
+            <div class="input-container">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+              <input id="email" v-model="email" type="email" placeholder="tu@correo.com" @keyup.enter="handleLogin"
+                autocomplete="email" />
             </div>
           </div>
 
-          <div class="input-group">
+          <div class="input-root">
             <label for="password">Contraseña</label>
-            <div class="input-wrapper">
-              <input id="password" v-model="password" type="password" placeholder="••••••••"
-                @keyup.enter="handleLogin" />
+            <div class="input-container">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
+                @keyup.enter="handleLogin" autocomplete="current-password" />
+              <button class="toggle-password" @click="showPassword = !showPassword" type="button">
+                <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path
+                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <div class="actions">
-            <button class="primary-btn" @click="handleLogin" :disabled="isLoading">
-              <span v-if="isLoading" class="spinner"></span>
-              <span v-else>Iniciar Sesión</span>
+          <div class="action-buttons">
+            <button class="btn-primary" @click="handleLogin" :disabled="isLoading">
+              <span v-if="isLoading" class="loader"></span>
+              <span v-else>Entrar</span>
             </button>
 
-            <div class="divider">
-              <span>o continúa con</span>
-            </div>
-
-            <button class="secondary-btn" @click="handleRegister" :disabled="isLoading">
-              Crear cuenta nueva
+            <button class="btn-ghost" @click="handleRegister" :disabled="isLoading">
+              Crear cuenta
             </button>
           </div>
-        </div>
+        </main>
+
+        <footer class="card-footer">
+          <p>&copy; 2025 Gastos DuQuen &bull; v1.0</p>
+        </footer>
       </div>
-
-      <p class="copyright">© 2025 Gastos DuQuen. Todos los derechos reservados.</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Reset & Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
-* {
-  box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
-}
+.login-page {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --bg-page: #f9fafb;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --border: #e5e7eb;
+  --error: #ef4444;
+  --success: #10b981;
 
-.login-container {
   min-height: 100vh;
   width: 100%;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-  padding: 1.5rem;
-  color: #1e293b;
+  justify-content: center;
+  background-color: var(--bg-page);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  position: relative;
+  overflow: hidden;
+  color: var(--text-main);
 }
 
-/* Wrapper to center content and hold footer */
-.login-wrap {
+/* Subtle background decoration */
+.bg-glow {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.bg-glow-1 {
+  background: #e0e7ff;
+  top: -100px;
+  right: -50px;
+}
+
+.bg-glow-2 {
+  background: #fdf2f8;
+  bottom: -100px;
+  left: -50px;
+}
+
+.login-container {
+  z-index: 10;
   width: 100%;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
+  max-width: 400px;
+  padding: 1rem;
 }
 
 .login-card {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  padding: 2.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
   border-radius: 1.5rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  animation: slideUp 0.5s ease-out;
+  padding: 2rem 2.25rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes slideUp {
+@keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(15px);
   }
 
   to {
@@ -167,164 +241,211 @@ const handleRegister = async () => {
   }
 }
 
-/* Header Section */
-.header {
+.card-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
-.logo-circle {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  border-radius: 50%;
+.logo-area {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1rem;
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
-.logo-icon {
+.logo-box {
+  width: 32px;
+  height: 32px;
+  background: var(--primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-svg {
+  width: 18px;
+  height: 18px;
   color: white;
-  font-size: 1.75rem;
-  font-weight: 700;
 }
 
-.header h1 {
+.card-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 0.5rem;
-}
-
-.subtitle {
-  color: #64748b;
-  font-size: 0.925rem;
+  letter-spacing: -0.02em;
   margin: 0;
-  line-height: 1.5;
 }
 
-/* Form Styles */
-.input-group {
-  margin-bottom: 1.25rem;
+.tagline {
+  color: var(--text-muted);
+  font-size: 0.825rem;
+  font-weight: 400;
 }
 
-.input-group label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 0.5rem;
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.input-wrapper input {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+.alert {
+  padding: 0.65rem 0.85rem;
   border-radius: 0.75rem;
-  font-size: 1rem;
-  color: #0f172a;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: #991b1b;
+  font-size: 0.775rem;
+  line-height: 1.4;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border-color: #dcfce7;
+  color: #166534;
+}
+
+.input-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.input-root label {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: #374151;
+  margin-left: 0.15rem;
+}
+
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.input-container input {
+  width: 100%;
+  padding: 0.8rem 1rem 0.8rem 2.75rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  color: var(--text-main);
+  font-size: 0.9rem;
   transition: all 0.2s ease;
 }
 
-.input-wrapper input:focus {
+.input-container input:focus {
   outline: none;
-  border-color: #3b82f6;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-.input-wrapper input::placeholder {
-  color: #94a3b8;
+.input-container input:focus+.input-icon {
+  color: var(--primary);
 }
 
-/* Actions */
-.actions {
-  margin-top: 1.5rem;
+.toggle-password {
+  position: absolute;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
 }
 
-.primary-btn {
+.toggle-password:hover {
+  color: #6b7280;
+}
+
+.toggle-password svg {
+  width: 16px;
+  height: 16px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-primary {
   width: 100%;
-  padding: 0.875rem;
-  background: #0f172a;
+  padding: 0.85rem;
+  background: var(--primary);
   color: white;
   border: none;
-  border-radius: 0.75rem;
-  font-size: 1rem;
+  border-radius: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
 }
 
-.primary-btn:hover:not(:disabled) {
-  background: #1e293b;
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
-.primary-btn:active:not(:disabled) {
-  transform: translateY(0);
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  margin: 1.25rem 0;
-  color: #94a3b8;
-  font-size: 0.8rem;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.divider span {
-  padding: 0 10px;
-}
-
-.secondary-btn {
+.btn-ghost {
   width: 100%;
-  padding: 0.875rem;
-  background: white;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 600;
+  padding: 0.75rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.secondary-btn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #1e293b;
+.btn-ghost:hover:not(:disabled) {
+  background: #f9fafb;
+  color: var(--text-main);
 }
 
-.copyright {
-  color: #94a3b8;
-  font-size: 0.75rem;
+.card-footer {
+  margin-top: 1.5rem;
   text-align: center;
+}
+
+.card-footer p {
+  font-size: 0.725rem;
+  color: var(--text-muted);
   margin: 0;
 }
 
-/* Spinner */
-.spinner {
-  width: 20px;
-  height: 20px;
+/* Loader */
+.loader {
+  width: 18px;
+  height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   border-top-color: white;
-  animation: spin 0.8s linear infinite;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
@@ -333,35 +454,11 @@ const handleRegister = async () => {
   }
 }
 
-/* Responsive adjustments */
+/* Mobile Adjustments */
 @media (max-width: 480px) {
-  .login-container {
-    padding: 0;
-    align-items: flex-end;
-    /* Sheet style or full screen */
-  }
-
   .login-card {
-    border-radius: 1.5rem 1.5rem 0 0;
-    padding: 2rem 1.5rem;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-    /* Make it fill easier on tiny screens */
-    min-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .login-wrap {
-    max-width: none;
-    height: 100%;
-    justify-content: flex-end;
-    gap: 0;
-  }
-
-  .copyright {
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+    padding: 1.75rem 1.5rem;
+    border-radius: 1.25rem;
   }
 }
 </style>
